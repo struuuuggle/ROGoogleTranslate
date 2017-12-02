@@ -8,29 +8,31 @@
 
 import Foundation
 
-/// MARK: - ROGoogleTranslateParams
-
-/// Struct translate
 public struct ROGoogleTranslateParams {
-    
-    var source: String
-    var target: String
-    var text:   String
+	public var source: String
+	public var target: String
+	public var text: String
+	
+	public init(source: String, target: String, text: String) {
+		self.source = source
+		self.target = target
+		self.text = text
+	}
 }
 
-/// MARK: - ROGoogleTranslate
 
 /// Offers easier access to the Google Translate API
 open class ROGoogleTranslate {
     
     /// Store here the Google Translate API Key
-    public var apiKey: String
+	public var API_KEY: String
     
+    ///
     /// Initial constructor
     ///
-    /// - Parameter apiKey: String
-    public init(with apiKey: String) {
-        self.apiKey = apiKey
+    public init() {
+        /// Add your API Key here
+		API_KEY = "MY API KEY HERE"
     }
     
     ///
@@ -39,39 +41,57 @@ open class ROGoogleTranslate {
     /// - parameter params:   ROGoogleTranslate Struct contains all the needed parameters to translate with the Google Translate API
     /// - parameter callback: The translated string will be returned in the callback
     ///
-    open func translate(params: ROGoogleTranslateParams, callback: @escaping (_ translatedText: String) -> ()) {
-
-        guard
-            let urlEncodedText = params.text.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed),
-            let url            = URL(string: "https://www.googleapis.com/language/translate/v2?key=\(self.apiKey)&q=\(urlEncodedText)&source=\(params.source)&target=\(params.target)") else {
-                return
+    open func translate(params:ROGoogleTranslateParams, callback:@escaping (_ translatedText:String) -> ()) {
+        
+        guard API_KEY != "" else {
+            print("Warning: You should set the api key before calling the translate method.")
+            return
         }
         
-        let httprequest = URLSession.shared.dataTask(with: url, completionHandler: { (data, response, error) in
+        if let urlEncodedText = params.text.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed) {
+            if let url = URL(string: "https://translation.googleapis.com/language/translate/v2?key=\(self.API_KEY)&q=\(urlEncodedText)&source=\(params.source)&target=\(params.target)&format=text") {
             
-            guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200 else {
-                print("Something went wrong: \(String(describing: error?.localizedDescription))")
-                return
-            }
-            
-            do {
-                guard
-                    let data            = data,
-                    let json            = try JSONSerialization.jsonObject(with: data, options: .mutableContainers) as? NSDictionary,
-                    let jsonData        = json["data"]                  as? [String : Any],
-                    let translations    = jsonData["translations"]      as? [NSDictionary],
-                    let translation     = translations.first            as? [String : Any],
-                    let translatedText  = translation["translatedText"] as? String
-                    else {
+                let httprequest = URLSession.shared.dataTask(with: url, completionHandler: { (data, response, error) in
+                    guard error == nil else {
+						print("Something went wrong: \(String(describing: error?.localizedDescription))")
                         return
-                }
-                callback(translatedText)
+                    }
+                    
+                    if let httpResponse = response as? HTTPURLResponse {
+                        
+                        guard httpResponse.statusCode == 200 else {
+                            
+                            if let data = data {
+                                print("Response [\(httpResponse.statusCode)] - \(data)")
+                            }
+                            
+                            return
+                        }
+                        
+                        do {
+                            // Pyramid of optional json retrieving. I know with SwiftyJSON it would be easier, but I didn't want to add an external library
+                            if let data = data {
+                                if let json = try JSONSerialization.jsonObject(with: data, options:JSONSerialization.ReadingOptions.mutableContainers) as? NSDictionary {
+                                    if let jsonData = json["data"] as? [String : Any] {
+                                        if let translations = jsonData["translations"] as? [NSDictionary] {
+                                            if let translation = translations.first as? [String : Any] {
+                                                if let translatedText = translation["translatedText"] as? String {
+                                                    callback(translatedText)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch {
+                            print("Serialization failed: \(error.localizedDescription)")
+                        }
+                    }
+                })
                 
-            } catch {
-                print("Serialization failed: \(error.localizedDescription)")
+                httprequest.resume()
             }
-        })
-        
-        httprequest.resume()
+        }
     }
 }
+
