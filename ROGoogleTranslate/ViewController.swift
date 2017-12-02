@@ -27,12 +27,8 @@ class ViewController: UIViewController {
     
     @IBAction func translate() {
         let translator = ROGoogleTranslate()
-        translator.apiKey = "" // Add your API Key here
         
-        var params = ROGoogleTranslateParams()
-        params.source = fromLanguage.text ?? "en"
-        params.target = toLanguage.text ?? "de"
-        params.text = text.text ?? "The textfield is empty"
+		let params = ROGoogleTranslateParams(source: fromLanguage.text!, target: toLanguage.text!, text: (text.text ?? "The textfield is empty"))
         
         translator.translate(params: params) { (result) in
             DispatchQueue.main.async {
